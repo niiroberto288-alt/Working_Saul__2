@@ -27,12 +27,17 @@ const routes = [
 // Phase 1 only: a dev gallery that exercises the design system. It is compiled
 // out of production builds because import.meta.env.DEV is statically false.
 if (import.meta.env.DEV) {
-  routes.unshift({
-    path: '/styleguide',
-    name: 'styleguide',
-    component: () => import('@/views/StyleGuideView.vue'),
-    meta: { public: true },
-  })
+  routes.unshift(
+    // Phase 1 preview convenience: the landing page arrives in Phase 2, so `/`
+    // opens the component gallery until then. Delete this entry with Phase 2.
+    { path: '/', redirect: { name: 'styleguide' } },
+    {
+      path: '/styleguide',
+      name: 'styleguide',
+      component: () => import('@/views/StyleGuideView.vue'),
+      meta: { public: true },
+    }
+  )
 }
 
 const router = createRouter({
