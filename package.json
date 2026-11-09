@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:demo-excluded": "node scripts/check-demo-leak.mjs",
-    "verify": "npm run build && npm run verify:demo-excluded && npm run lint && npm test"
+    "verify": "npm run build && npm run verify:demo-excluded && npm run lint && npm test",
+    "dev:sandbox": "bash scripts/dev.sh"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
