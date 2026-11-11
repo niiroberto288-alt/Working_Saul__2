@@ -64,6 +64,53 @@ unsent entry drafts are the only things written to `localStorage`.
 
 ---
 
+## Troubleshooting
+
+### `Cannot find native binding` when starting Vite on Windows
+
+Vite 8 builds on rolldown, which ships a small native module per platform
+(`@rolldown/binding-win32-x64-msvc` on Windows). npm has a long-standing bug
+([npm/cli#4828](https://github.com/npm/cli/issues/4828)) where optional
+dependencies are skipped, so the binary never lands in `node_modules`.
+The lockfile already lists it with a valid integrity hash; nothing is wrong
+with the repository.
+
+```powershell
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item package-lock.json -ErrorAction SilentlyContinue
+npm cache clean --force
+npm install
+npm run dev
+```
+
+If it persists, check whether optional packages are being suppressed:
+
+```powershell
+npm config get omit     # must not contain "optional"
+```
+
+Other known causes: the project living in a OneDrive-synced folder, an
+antivirus blocking `.node` extraction, or a brand-new Node release. Node 22 LTS
+is the tested target (`engines: >=20.19.0`, Netlify builds with 22).
+
+### `npm install` fails with `ENOENT ... package.json`
+
+The default branch (`main`) contains only a placeholder README. Check out the
+working branch first:
+
+```bash
+git checkout arena/771cd8aa-working-saul-2
+```
+
+### A production build shows "This logbook is not connected yet"
+
+Correct behaviour. A production build without Supabase keys is intentionally
+locked to that page so demo accounts can never reach production. Add
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, or use `npm run dev`, which
+runs in demo mode.
+
+---
+
 ## Environment
 
 Copy `.env.example` to `.env`:
