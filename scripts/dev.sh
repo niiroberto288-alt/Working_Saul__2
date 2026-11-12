@@ -19,4 +19,6 @@ if [ -n "${E2B_SANDBOX_ID:-}" ]; then
   echo "Preview: https://${PORT}-${E2B_SANDBOX_ID}.e2b.app/"
 fi
 
-exec npx vite --host 0.0.0.0 --port "$PORT"
+# strictPort: fail loudly instead of silently moving to another port, because
+# the preview URL is derived from the port number.
+exec npx vite --host 0.0.0.0 --port "$PORT" --strictPort
