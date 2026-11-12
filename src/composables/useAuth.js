@@ -414,6 +414,24 @@ async function updateProfile(patch) {
   return data
 }
 
+/** Demo sign-in hints for the login page. Empty outside demo mode. */
+async function demoAccounts() {
+  if (APP_MODE !== 'demo') return []
+
+  try {
+    const { demoLogins, getDemoState } = await demoModule()
+    const profiles = getDemoState().profiles
+    return demoLogins.map((account) => ({
+      email: account.email,
+      password: account.password,
+      role: profiles.find((profile) => profile.id === account.userId)?.role ?? null,
+    }))
+  } catch (error) {
+    logger.warn('Demo accounts unavailable', error)
+    return []
+  }
+}
+
 /* --------------------------------------------------------------------------
    Public surface
    -------------------------------------------------------------------------- */
@@ -462,6 +480,7 @@ export function useAuth() {
     requestPasswordReset,
     updatePassword,
     updateProfile,
+    demoAccounts,
     loadProfile,
   }
 }

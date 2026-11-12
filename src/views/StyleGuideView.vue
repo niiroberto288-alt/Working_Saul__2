@@ -172,7 +172,7 @@ function showStamp() {
         <section class="card p-6">
           <p class="eyebrow">{{ strings.styleguide.peopleEyebrow }}</p>
           <div class="mt-4 flex flex-wrap items-center gap-4">
-            <Avatar name="Aline Uwase" size="sm" />
+            <Avatar name="Aline U." size="sm" />
             <Avatar name="Dr. Claudine Uwera" />
             <Avatar name="Nadia Uwimana" size="lg" tone="gold" />
           </div>

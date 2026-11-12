@@ -676,6 +676,15 @@
     );
   }
 
+  /* ---------- Marquee ---------- */
+  .marquee-track {
+    will-change: transform;
+  }
+
+  .marquee[data-paused='true'] .marquee-track {
+    animation-play-state: paused;
+  }
+
   /* ---------- Tables ---------- */
   .data-table {
     width: 100%;

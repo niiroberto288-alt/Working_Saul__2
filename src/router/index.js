@@ -1,5 +1,5 @@
 /**
- * Router (FURPS+ 7, R2).
+ * Router (spec section 7, FURPS+ R2).
  *
  * Every view is a dynamic import so each route ships its own chunk (P1).
  * The guard waits for the Supabase session to finish loading before deciding,
@@ -8,8 +8,46 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { APP_MODE } from '@/services/supabase'
 import { useAuth, whenAuthReady } from '@/composables/useAuth'
+import { ROLES } from '@/config'
 
 const routes = [
+  {
+    path: '/',
+    name: 'home',
+    component: () => import('@/views/HomeView.vue'),
+    meta: { public: true },
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { public: true, guestOnly: true },
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: { public: true, guestOnly: true },
+  },
+  {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: () => import('@/views/ForgotPasswordView.vue'),
+    meta: { public: true, guestOnly: true },
+  },
+  {
+    // Reachable with a recovery session, which is a signed-in state.
+    path: '/reset-password',
+    name: 'reset-password',
+    component: () => import('@/views/ResetPasswordView.vue'),
+    meta: { public: true },
+  },
+  {
+    path: '/privacy',
+    name: 'privacy',
+    component: () => import('@/views/PrivacyView.vue'),
+    meta: { public: true },
+  },
   {
     path: '/app-not-configured',
     name: 'app-not-configured',
@@ -24,20 +62,21 @@ const routes = [
   },
 ]
 
-// Phase 1 only: a dev gallery that exercises the design system. It is compiled
-// out of production builds because import.meta.env.DEV is statically false.
+// Development-only component gallery. Compiled out of production builds because
+// import.meta.env.DEV is statically false there.
 if (import.meta.env.DEV) {
-  routes.unshift(
-    // Phase 1 preview convenience: the landing page arrives in Phase 2, so `/`
-    // opens the component gallery until then. Delete this entry with Phase 2.
-    { path: '/', redirect: { name: 'styleguide' } },
-    {
-      path: '/styleguide',
-      name: 'styleguide',
-      component: () => import('@/views/StyleGuideView.vue'),
-      meta: { public: true },
-    }
-  )
+  routes.push({
+    path: '/styleguide',
+    name: 'styleguide',
+    component: () => import('@/views/StyleGuideView.vue'),
+    meta: { public: true },
+  })
+}
+
+const DASHBOARDS = {
+  [ROLES.STUDENT]: '/student/dashboard',
+  [ROLES.SUPERVISOR]: '/supervisor/dashboard',
+  [ROLES.ADMIN]: '/admin/dashboard',
 }
 
 const router = createRouter({
@@ -62,6 +101,7 @@ router.beforeEach(async (to) => {
     return to.name === 'app-not-configured' ? true : { name: 'app-not-configured', replace: true }
   }
 
+  const destinationForRole = DASHBOARDS[role.value] ?? '/login'
   const needsAuth = to.meta.requiresAuth === true
   const allowedRoles = Array.isArray(to.meta.roles) ? to.meta.roles : null
 
@@ -81,7 +121,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guestOnly && isAuthenticated.value) {
-    return { name: 'home' }
+    return { path: destinationForRole, replace: true }
   }
 
   return true

@@ -4,9 +4,10 @@ A digital internship (attachment) logbook for Rwandan students, supervisors and 
 programme office. Paper-and-ink editorial design, two themes, real Supabase mode and a
 fully working in-memory demo mode.
 
-> **Status: Phase 1 of 7 complete.** Foundation, configuration, design system, shared
-> components, routing, authentication and the data layer are in place. The pages arrive in
-> Phases 2 to 5, cross-cutting features in Phase 6, and the FURPS+ quality pass in Phase 7.
+> **Status: Phase 2 of 7 complete.** Foundation and the public pages are done: landing
+> page, sign in, registration, password reset, privacy notice and 404, plus the database
+> schema in `supabase/schema.sql`. Student, supervisor and admin screens follow in Phases
+> 3 to 5, cross-cutting features in Phase 6, and the FURPS+ quality pass in Phase 7.
 > See [Phase status](#phase-status).
 
 ---
@@ -160,6 +161,25 @@ supabase/             schema.sql and seed.sql (Phase 5 / Phase 7)
 
 ---
 
+## Routes
+
+| Path                  | Purpose                                                                 | Access                          |
+| --------------------- | ----------------------------------------------------------------------- | ------------------------------- |
+| `/`                   | Landing page: hero, the four rails, supervisors, activity, first review | Public                          |
+| `/login`              | Sign in (demo hints in demo mode)                                       | Guests                          |
+| `/register`           | Open a logbook, student or supervisor only                              | Guests                          |
+| `/forgot-password`    | Request a reset link; answers the same whether the address exists       | Guests                          |
+| `/reset-password`     | Choose a new password from the recovery link                            | Public (needs recovery session) |
+| `/privacy`            | Privacy notice                                                          | Public                          |
+| `/styleguide`         | Design-system gallery                                                   | Development only                |
+| `/app-not-configured` | Shown when a production build has no Supabase keys                      | Public                          |
+| anything else         | Styled 404                                                              | Public                          |
+
+A signed-in visitor who opens `/login` is sent to their own desk. A signed-out visitor who
+opens a protected route is sent to `/login?redirect=...` and returned there afterwards.
+
+---
+
 ## Design system in one paragraph
 
 Warm linen and deep forest green in light mode; deep slate and teal in dark mode. Serif
@@ -236,6 +256,96 @@ Later phases add `useLogs`, `useTemplates`, `useNotifications`, `useCompetencies
   enforce the same rule with a trigger in Phase 5.
 - Seeded demo passwords exist only in `src/services/demoData.js`; Vite compiles that module
   out of production builds when `import.meta.env.DEV` is false and demo is not requested.
+
+---
+
+## Database
+
+`supabase/schema.sql` creates the whole database. Run it once in the Supabase SQL editor
+on a new project; it is ordered, commented and safe to re-run.
+
+### What it creates
+
+| Table                 | Holds                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| `profiles`            | Name, role, institution, company, department, phone. One row per auth user |
+| `supervisor_students` | The caseload: which supervisor carries which student                       |
+| `logbook_templates`   | Supervisor-built forms (`fields` as JSONB) with versions                   |
+| `logbook_assignments` | Which student writes into which template                                   |
+| `logs`                | Entries: date, hours, description, skills, answers, status                 |
+| `evidence`            | Metadata for files in the private `evidence` bucket                        |
+| `comments`            | Supervisor notes on an entry                                               |
+| `notifications`       | Unread counts and messages, written by triggers                            |
+| `log_revisions`       | The previous version of an entry, kept on every update                     |
+| `audit_log`           | Append-only record of changes                                              |
+| `competencies`        | The six reference competencies                                             |
+| `competency_signoffs` | Outstanding, developing or witnessed, per student                          |
+| `term_signoffs`       | Final term sign-off                                                        |
+| `review_requests`     | The landing page's free-review form                                        |
+
+### Rules the database enforces itself
+
+| Rule                                                                 | Where                                          |
+| -------------------------------------------------------------------- | ---------------------------------------------- |
+| Approved entries are frozen                                          | `logs_guard_write()` trigger                   |
+| Only Draft and Rejected entries are editable or deletable            | trigger + delete policy                        |
+| A student cannot set a status other than Draft or Pending            | `logs_guard_write()`                           |
+| A supervisor cannot rewrite a student's text, only the review fields | `logs_guard_write()`                           |
+| A rejection must carry a comment                                     | `logs_rejection_needs_comment` check + trigger |
+| Nobody can create an already-approved entry                          | `logs_guard_write()`                           |
+| Hours are greater than 0 and at most 24                              | check constraint                               |
+| An entry cannot be dated in the future                               | check constraint                               |
+| Text fields have length limits                                       | check constraints                              |
+| One entry per student, template and date                             | `logs_unique_entry_per_day`                    |
+| A user cannot change their own role or id                            | `guard_profile_update()` trigger               |
+| Registration can never create an admin                               | `handle_new_user()` clamps the role            |
+| The audit log cannot be edited or deleted                            | no policies, `revoke`, plus a trigger          |
+| A supervisor sees only their own caseload                            | `current_supervises()` in every policy         |
+| Evidence files live in a per-user folder                             | storage policies in section 06                 |
+
+### Policies at a glance
+
+Every table has Row Level Security enabled. The full list, with a comment on each policy,
+is in section 05 of `schema.sql`. In short:
+
+- **Students** read and write their own logs, profile, notifications and assigned templates.
+- **Supervisors** read the logs and profiles of students on their caseload, manage their own
+  templates and assignments, and can only change the review fields of an entry.
+- **Administrators** read everything and are the only ones who can change a role.
+- **Anonymous visitors** can insert a `review_requests` row and read the competency list.
+  Nothing else.
+
+### Promoting the first administrator
+
+```sql
+update public.profiles
+   set role = 'admin'
+ where id = (select id from auth.users where email = 'office@university.ac.rw');
+```
+
+Sign in afterwards; the change is written to `audit_log` by trigger.
+
+### Verifying isolation before real use
+
+Run these once the project is seeded:
+
+1. Sign in as student A and as student B in two browser profiles. Neither list shows the
+   other's entries.
+2. Sign in as a supervisor who does not supervise student C. C's entries return nothing.
+3. As a student, call the API to update an approved entry. It must fail with
+   `Approved entries are locked.`
+4. As a student, try `update profiles set role = 'admin' where id = auth.uid();`. It must
+   fail with `Only an administrator can change a role.`
+5. As a supervisor, read a student outside the caseload. Zero rows.
+
+### Recommended Auth settings
+
+- Email confirmation **on**.
+- Minimum password length **8**.
+- Site URL: your Netlify address. Redirect allow list:
+  `https://your-site/reset-password`, `https://your-site/login`,
+  `http://localhost:5173/reset-password`.
+- Leave Supabase's built-in rate limits on; do not fake rate limiting in the client.
 
 ---
 

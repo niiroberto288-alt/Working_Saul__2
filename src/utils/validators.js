@@ -52,7 +52,7 @@ export function email() {
 export function matches(fieldName, label, valuesGetter) {
   return (value, values) => {
     const other = valuesGetter ? valuesGetter(values) : values?.[fieldName]
-    return value === other ? null : `${label} does not match.`
+    return value === other ? null : `${label} do not match.`
   }
 }
 
@@ -141,6 +141,10 @@ export function dateOrder(startKey, label = 'End date') {
   }
 }
 
+export function accepted(label = 'Consent') {
+  return (value) => (value === true ? null : `${label} is required to continue.`)
+}
+
 export function oneOf(allowedValues, label = 'Value') {
   return (value) => {
     if (isEmpty(value)) return null
@@ -221,6 +225,7 @@ export default {
   hoursWorked,
   notFutureDate,
   dateOrder,
+  accepted,
   oneOf,
   fileWithinLimits,
   validateFields,
